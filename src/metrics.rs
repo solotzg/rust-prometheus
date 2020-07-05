@@ -91,10 +91,11 @@ pub struct Opts {
 impl Opts {
     /// `new` creates the Opts with the `name` and `help` arguments.
     pub fn new<S: Into<String>>(name: S, help: S) -> Opts {
+        let tiflash_name = format!("tiflash_proxy_{}", name.into());
         Opts {
             namespace: "".to_owned(),
             subsystem: "".to_owned(),
-            name: name.into(),
+            name: tiflash_name.into(),
             help: help.into(),
             const_labels: HashMap::new(),
             variable_labels: Vec::new(),
