@@ -7,6 +7,8 @@ use std::collections::HashMap;
 use crate::desc::{Desc, Describer};
 use crate::errors::Result;
 use crate::proto::{self, LabelPair};
+use crate::timer;
+use std::cell::Cell;
 
 pub const SEPARATOR_BYTE: u8 = 0xFF;
 
@@ -31,23 +33,42 @@ pub trait LocalMetric {
     fn flush(&self);
 }
 
-/// A struct that bundles the options for creating most [`Metric`](::core::Metric) types.
+/// An interface models a LocalMetric with try to flush functions.
+/// Not intend to be implemented by user manually, used in macro generated code.
+pub trait MayFlush: LocalMetric {
+    /// If the LocalMetric is already flushed in last `flush_interval_sec` seconds, then do nothing,
+    /// else flush and update last flush time.
+    fn try_flush(&self, last_flush: &Cell<u64>, flush_interval_millis: u64) {
+        let now = timer::recent_millis();
+        let last_tick = last_flush.get();
+        if now < last_tick + flush_interval_millis {
+            return;
+        }
+        self.flush();
+        last_flush.set(now);
+    }
+
+    /// Open to implementation to fill try_flush parameters
+    fn may_flush(&self);
+}
+
+/// A struct that bundles the options for creating most [`Metric`] types.
 #[derive(Debug, Clone)]
 pub struct Opts {
     /// namespace, subsystem, and name are components of the fully-qualified
-    /// name of the [`Metric`](::core::Metric) (created by joining these components with
+    /// name of the [`Metric`] (created by joining these components with
     /// "_"). Only Name is mandatory, the others merely help structuring the
     /// name. Note that the fully-qualified name of the metric must be a
     /// valid Prometheus metric name.
     pub namespace: String,
     /// namespace, subsystem, and name are components of the fully-qualified
-    /// name of the [`Metric`](::core::Metric) (created by joining these components with
+    /// name of the [`Metric`] (created by joining these components with
     /// "_"). Only Name is mandatory, the others merely help structuring the
     /// name. Note that the fully-qualified name of the metric must be a
     /// valid Prometheus metric name.
     pub subsystem: String,
     /// namespace, subsystem, and name are components of the fully-qualified
-    /// name of the [`Metric`](::core::Metric) (created by joining these components with
+    /// name of the [`Metric`] (created by joining these components with
     /// "_"). Only Name is mandatory, the others merely help structuring the
     /// name. Note that the fully-qualified name of the metric must be a
     /// valid Prometheus metric name.
@@ -69,10 +90,10 @@ pub struct Opts {
     /// serve only special purposes. One is for the special case where the
     /// value of a label does not change during the lifetime of a process,
     /// e.g. if the revision of the running binary is put into a
-    /// label. Another, more advanced purpose is if more than one [`Collector`](::core::Collector)
+    /// label. Another, more advanced purpose is if more than one [`Collector`]
     /// needs to collect Metrics with the same fully-qualified name. In that
     /// case, those Metrics must differ in the values of their
-    /// ConstLabels. See the [`Collector`](::core::Collector) examples.
+    /// ConstLabels. See the [`Collector`] examples.
     ///
     /// If the value of a label never changes (not even between binaries),
     /// that label most likely should not be a label at all (but part of the
@@ -180,10 +201,10 @@ impl PartialOrd for LabelPair {
 
 /// `build_fq_name` joins the given three name components by "_". Empty name
 /// components are ignored. If the name parameter itself is empty, an empty
-/// string is returned, no matter what. [`Metric`](::core::Metric) implementations included in this
+/// string is returned, no matter what. [`Metric`] implementations included in this
 /// library use this function internally to generate the fully-qualified metric
 /// name from the name component in their Opts. Users of the library will only
-/// need this function if they implement their own [`Metric`](::core::Metric) or instantiate a Desc
+/// need this function if they implement their own [`Metric`] or instantiate a Desc
 /// directly.
 fn build_fq_name(namespace: &str, subsystem: &str, name: &str) -> String {
     if name.is_empty() {
