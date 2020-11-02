@@ -112,20 +112,16 @@ pub struct Opts {
 impl Opts {
     /// `new` creates the Opts with the `name` and `help` arguments.
     pub fn new<S: Into<String>>(name: S, help: S) -> Opts {
-        let name = {
-            let converted = name.into();
-            #[cfg(feature = "metric-name-prefix")]
-            let converted = if let Some(p) = option_env!("PROMETHEUS_METRIC_NAME_PREFIX") {
-                p.to_string() + converted.as_str()
-            } else {
-                converted.into()
-            };
-            converted
+        let name = if let Some(p) = option_env!("PROMETHEUS_METRIC_NAME_PREFIX") {
+            p.to_string() + name.into().as_str()
+        } else {
+            name.into()
         };
+
         Opts {
             namespace: "".to_owned(),
             subsystem: "".to_owned(),
-            name,
+            name: name.into(),
             help: help.into(),
             const_labels: HashMap::new(),
             variable_labels: Vec::new(),
